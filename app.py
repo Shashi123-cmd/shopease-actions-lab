@@ -36,3 +36,53 @@ def visit():
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
 
+name: Shopease App CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Pull base image
+        run: docker pull python:3.12-slim
+
+      - name: Install dependencies
+        run: |
+          docker run --rm \
+            -v $GITHUB_WORKSPACE:/app \
+            -w /app \
+            python:3.12-slim \
+            bash -lc "pip install --no-cache-dir -r requirements.txt"
+
+      - name: Copy application code
+        run: |
+          mkdir -p app
+          cp -r . app/
+          ls -la app
+
+      - name: Expose port
+        run: echo "App is configured to expose port 5000"
+
+      - name: Run app.py
+        run: |
+          docker run -d --name shopease-app \
+            -p 5000:5000 \
+            -v $GITHUB_WORKSPACE:/app \
+            -w /app \
+            python:3.12-slim \
+            bash -lc "pip install --no-cache-dir -r requirements.txt && python app.py"
+
+      - name: Health check
+        run: |
+          sleep 5
+          curl -f http://localhost:5000/health
